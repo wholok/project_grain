@@ -1,0 +1,447 @@
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import seaborn as sns
+
+df=pd.read_csv('allparameter_merged_file.csv')
+df.head()
+df.shape
+df.info
+sns.pairplot(df)
+features=df.iloc[:,0:24]
+target=df.iloc[:,24]
+
+target[:5]
+features[:5]
+
+from sklearn.preprocessing import StandardScaler
+scaling=StandardScaler()
+scaled_data=scaling.fit_transform(features)
+features=pd.DataFrame(scaled_data,columns=features.columns)
+features.head()
+
+x=features['length']
+y=features['width']
+plt.scatter(x,y)
+plt.xlabel('length')
+plt.ylabel('width')
+plt.title('length vs width')
+
+
+x=features['roundness']
+y=features['solidity']
+plt.scatter(x,y)
+plt.xlabel('roundness')
+plt.ylabel('solidity')
+plt.title('roundness vs solidity')
+
+
+import pandas as pd
+df=pd.read_csv('allparameter_merged_file.csv')
+df.head()
+df=df.sample(frac=1,random_state=3)
+y=df['category']
+x=df.drop('category',axis=1)
+
+from sklearn.model_selection import train_test_split
+
+X_train,X_test,y_train,y_test=train_test_split(x,y,test_size=0.3,random_state=3)
+
+from sklearn.preprocessing import StandardScaler
+ss=StandardScaler()
+Xs=ss.fit_transform(x)
+
+X_trains=ss.fit_transform(X_train)
+X_tests=ss.transform(X_test)
+
+from sklearn.metrics import confusion_matrix,accuracy_score,roc_auc_score,roc_curve
+from sklearn.ensemble import RandomForestClassifier
+rfc=RandomForestClassifier(n_estimators=1000)
+
+rfc.fit(X_trains,y_train)
+y_train_pred =rfc.predict(X_trains)
+y_train_prob = rfc.predict_proba(X_trains)[:,1]
+
+print('Confusion Matrix - Train: \n', confusion_matrix(y_train, y_train_pred))
+print('\n')
+print('Overall Accuracy - Train: ', accuracy_score(y_train, y_train_pred))
+
+y_test_pred = rfc.predict(X_tests)
+y_test_prob = rfc.predict_proba(X_tests)[:,1]
+
+print('\n')
+print('Confusion Matrix - Test: \n', confusion_matrix(y_test, y_test_pred))
+print('\n')
+print('Overall Accuracy - Test: ', accuracy_score(y_test, y_test_pred))
+
+
+from sklearn.naive_bayes import GaussianNB
+gnb=GaussianNB()
+gnb.fit(X_trains,y_train)
+
+y_train_pred = gnb.predict(X_trains)
+y_train_prob = gnb.predict_proba(X_trains)[:,1]
+
+print('Confusion Matrix - Train: \n', confusion_matrix(y_train, y_train_pred))
+print('\n')
+print('Overall Accuracy - Train: ', accuracy_score(y_train, y_train_pred))
+
+
+y_test_pred = gnb.predict(X_tests)
+y_test_prob = gnb.predict_proba(X_tests)[:,1]
+
+print('\n')
+print('Confusion Matrix - Test: \n', confusion_matrix(y_test, y_test_pred))
+print('\n')
+print('Overall Accuracy - Test: ', accuracy_score(y_test, y_test_pred))
+
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.model_selection import RandomizedSearchCV,GridSearchCV
+from scipy.stats import randint as sp_randint
+
+knn=KNeighborsClassifier()
+
+params = {'n_neighbors': sp_randint(1, 38), 'p': sp_randint(1, 5)}
+rsearch_knn=RandomizedSearchCV(knn,param_distributions=params,cv=3,n_iter=500,return_train_score=True,random_state=3,n_jobs=-1)
+rsearch_knn.fit(Xs,y)
+
+rsearch_knn.best_params_
+
+from sklearn.metrics import confusion_matrix,accuracy_score,classification_report,roc_auc_score,roc_curve
+
+
+knn=KNeighborsClassifier(**rsearch_knn.best_params_)
+
+
+knn.fit(X_trains,y_train)
+y_train_pred = knn.predict(X_trains)
+y_train_prob = knn.predict_proba(X_trains)[:,1]
+
+print('Confusion Matrix - Train: \n', confusion_matrix(y_train, y_train_pred))
+print('\n')
+print('Overall Accuracy - Train: ', accuracy_score(y_train, y_train_pred))
+
+
+y_test_pred = knn.predict(X_tests)
+y_test_prob = knn.predict_proba(X_tests)[:,1]
+
+print('\n')
+print('Confusion Matrix - Test: \n', confusion_matrix(y_test, y_test_pred))
+print('\n')
+print('Overall Accuracy - Test: ', accuracy_score(y_test, y_test_pred))
+print('Classification Report-Test: \n', classification_report(y_test,y_test_pred))
+
+
+from sklearn.cluster import KMeans
+
+from scipy.stats import zscore
+
+
+print(df.dtypes)
+
+
+numeric_df = df.select_dtypes(include=['number'])
+
+
+df_scaled = numeric_df.apply(zscore)
+
+
+model = KMeans(n_clusters=3)
+
+
+model.fit(df_scaled)
+
+
+cluster_labels = model.predict(df_scaled)
+
+
+df['cluster'] = cluster_labels
+
+
+print(df.head())
+
+df_scaled=df.apply(zscore)
+
+
+cluster_range = range( 1, 10 )
+cluster_errors = []
+for num_clusters in cluster_range:
+  clusters = KMeans( num_clusters, n_init = 10 )
+  clusters.fit(df_scaled)
+  cluster_errors.append( clusters.inertia_ )
+clusters_df = pd.DataFrame( { "num_clusters":cluster_range, "cluster_errors": cluster_errors } )
+clusters_df[0:15]
+
+
+import matplotlib.pyplot as plt
+plt.figure(figsize=(12,6))
+plt.plot( clusters_df.num_clusters, clusters_df.cluster_errors, marker = "o" )
+
+
+
+kmeans=KMeans(n_clusters=3, n_init=15,random_state=3)
+kmeans.fit(df_scaled)
+
+
+
+df_scaled['Class']=kmeans.labels_.astype('object')
+df_scaled['Class'].value_counts()
+
+df_k=df_scaled.copy()
+df_k.head()
+
+from mpl_toolkits.mplot3d import Axes3D
+
+
+non_numeric_columns = df.select_dtypes(exclude=[float, int]).columns
+print("Non-numeric columns:", non_numeric_columns)
+
+fig = plt.figure(figsize=(8, 6))
+ax = Axes3D(fig, rect=[0, 0, .95, 1], elev=20, azim=100)
+kmeans.fit(df)
+labels = kmeans.labels_
+ax.scatter(df_scaled.iloc[:, 0], df_scaled.iloc[:, 1], df_scaled.iloc[:, 3],c=labels.astype(float), edgecolor='k')
+ax.set_xticklabels([])
+ax.set_yticklabels([])
+ax.set_zticklabels([])
+ax.set_xlabel('Length')
+ax.set_ylabel('width')
+ax.set_zlabel('roundness')
+ax.set_title('3D plot of KMeans Clustering')
+
+
+from scipy.cluster.hierarchy import linkage, dendrogram
+plt.figure(figsize=[10,10])
+merg = linkage(df, method='ward')
+dendrogram(merg, leaf_rotation=90)
+plt.title('Dendrogram')
+plt.xlabel('Data Points')
+plt.ylabel('Euclidean Distances')
+plt.show()
+
+from sklearn.cluster import AgglomerativeClustering
+
+hie_clus = AgglomerativeClustering(n_clusters=3, affinity='euclidean', linkage='ward')
+cluster2 = hie_clus.fit_predict(df)
+
+df_h = df.copy(deep=True)
+df_h['predicted_label'] = cluster2
+df_h
+
+print('K-Means Predicted Data Classes:')
+print(df_k['Class'].value_counts())
+print('-' * 30)
+print('Hierarchical Predicted Data Classes:')
+print(df_h['predicted_label'].value_counts())
+
+
+sns.pairplot(df_h,hue='predicted_label')
+
+
+from __future__ import print_function
+%matplotlib inline
+
+
+from sklearn.cluster import KMeans
+from sklearn.metrics import silhouette_samples, silhouette_score
+
+import matplotlib.pyplot as plt
+import matplotlib.cm as cm
+import numpy as np
+
+print(__doc__)
+
+
+X=np.array(df.drop('category',axis=1))
+y=np.array(df['category'])
+
+range_n_clusters = [2, 3, 4, 5, 6]
+for n_clusters in range_n_clusters:
+    
+    fig, (ax1, ax2) = plt.subplots(1, 2)
+    fig.set_size_inches(18, 7)
+
+    
+    ax1.set_xlim([-0.1, 1])
+    
+    ax1.set_ylim([0, len(X) + (n_clusters + 1) * 10])
+
+   
+    clusterer = KMeans(n_clusters=n_clusters, random_state=10)
+    cluster_labels = clusterer.fit_predict(X)
+
+    
+    silhouette_avg = silhouette_score(X, cluster_labels)
+    print("For n_clusters =", n_clusters,
+          "The average silhouette_score is :", silhouette_avg)
+
+    
+    sample_silhouette_values = silhouette_samples(X, cluster_labels)
+
+    y_lower = 10
+    for i in range(n_clusters):
+        
+        ith_cluster_silhouette_values = \
+            sample_silhouette_values[cluster_labels == i]
+
+        ith_cluster_silhouette_values.sort()
+
+        size_cluster_i = ith_cluster_silhouette_values.shape[0]
+        y_upper = y_lower + size_cluster_i
+
+        color = cm.Spectral(float(i) / n_clusters)
+        ax1.fill_betweenx(np.arange(y_lower, y_upper),
+                          0, ith_cluster_silhouette_values,
+                          facecolor=color, edgecolor=color, alpha=0.7)
+        
+       
+        ax1.text(-0.05, y_lower + 0.5 * size_cluster_i, str(i))
+
+        
+        y_lower = y_upper + 10  
+
+    ax1.set_title("The silhouette plot for the various clusters.")
+    ax1.set_xlabel("The silhouette coefficient values")
+    ax1.set_ylabel("Cluster label")
+
+    
+    ax1.axvline(x=silhouette_avg, color="red", linestyle="--")
+
+    ax1.set_yticks([])  
+    ax1.set_xticks([-0.1, 0, 0.2, 0.4, 0.6, 0.8, 1])
+
+    
+    colors = cm.Spectral(cluster_labels.astype(float) / n_clusters)
+    ax2.scatter(X[:,0], X[:,1], marker='.', s=30, lw=0, alpha=0.7,c=colors)
+
+    centers = clusterer.cluster_centers_
+    
+    ax2.scatter(centers[:, 0], centers[:, 1],
+                marker='o', c="white", alpha=1, s=200)
+
+    for i, c in enumerate(centers):
+        ax2.scatter(c[0], c[1], marker='$%d$' % i, alpha=1, s=50)
+
+    ax2.set_title("The visualization of the clustered data.")
+    ax2.set_xlabel("Feature space for the 1st feature")
+    ax2.set_ylabel("Feature space for the 2nd feature")
+
+    plt.suptitle(("Silhouette analysis for KMeans clustering on sample data "
+                  "with n_clusters = %d" % n_clusters),
+                 fontsize=14, fontweight='bold')
+
+    plt.show()
+
+
+import pandas as pd
+from sklearn.cluster import KMeans
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
+from sklearn.metrics import silhouette_score, davies_bouldin_score, calinski_harabasz_score
+import matplotlib.pyplot as plt
+
+
+file_path = 'allparameter_merged_file.csv'
+df = pd.read_csv(file_path)
+
+
+df.fillna(df.mean(), inplace=True)
+
+
+X = df.select_dtypes(include=[float, int])
+
+
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X)
+
+
+pca = PCA(n_components=2)  
+X_pca = pca.fit_transform(X_scaled)
+
+def tune_kmeans(X, max_clusters=10):
+    silhouette_scores = []
+    davies_bouldin_scores = []
+    calinski_harabasz_scores = []
+    inertias = []
+
+    for n_clusters in range(2, max_clusters + 1):
+        kmeans = KMeans(n_clusters=n_clusters, init='k-means++', n_init=10, random_state=42)
+        cluster_labels = kmeans.fit_predict(X)
+        
+        # Calculating the silhouette score
+        silhouette_avg = silhouette_score(X, cluster_labels)
+        silhouette_scores.append(silhouette_avg)
+        
+        # Calculating the Davies-Bouldin Index
+        db_score = davies_bouldin_score(X, cluster_labels)
+        davies_bouldin_scores.append(db_score)
+        
+        # Calculating the Calinski-Harabasz Index
+        ch_score = calinski_harabasz_score(X, cluster_labels)
+        calinski_harabasz_scores.append(ch_score)
+        
+        
+        inertias.append(kmeans.inertia_)
+        
+        print(f"Number of clusters: {n_clusters}, Silhouette Score: {silhouette_avg}, "
+              f"Davies-Bouldin Score: {db_score}, Calinski-Harabasz Score: {ch_score}")
+
+    
+    plt.figure(figsize=(10, 5))
+     plt.plot(range(2, max_clusters + 1), silhouette_scores, marker='o', label='Silhouette Score')
+    plt.plot(range(2, max_clusters + 1), davies_bouldin_scores, marker='o', label='Davies-Bouldin Score')
+    plt.plot(range(2, max_clusters + 1), calinski_harabasz_scores, marker='o', label='Calinski-Harabasz Score')
+    plt.xlabel('Number of clusters')
+    plt.ylabel('Score')
+    plt.legend()
+    plt.title('Cluster Evaluation Scores for different number of clusters')
+    plt.show()
+    
+    
+    plt.figure(figsize=(10, 5))
+    plt.plot(range(2, max_clusters + 1), inertias, marker='o')
+    plt.title('Inertia for different number of clusters')
+    plt.xlabel('Number of clusters')
+    plt.ylabel('Inertia')
+    plt.show()
+
+
+tune_kmeans(X_pca, max_clusters=10)
+
+
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# Load the dataset
+df=pd.read_csv('allparameter_merged_file.csv')  # Replace with the correct path
+data = pd.read_csv('allparameter_merged_file.csv')
+
+
+columns_sets = [
+    ['length', 'width'],
+    ['length', 'width', 'contrast', 'dissimilarity', 'homogenity'],
+    ['energy', 'correlation', 'ASM'],
+    ['R','G','B', 'H', 'S', 'V', 'grey'],
+    ['l', 'A', 'V.1', 'roundness', 'solidity'],
+    ['sf1', 'sf2', 'sf3', 'Area'] , 
+    ['roundness', 'solidity']
+]
+
+
+for i, columns in enumerate(columns_sets, start=1):
+    plt.figure(figsize=(10, 6))
+    data[columns].boxplot()
+    plt.title(f'Boxplots for Set {i}')
+    plt.ylabel('Values')
+    plt.xlabel('Parameters')
+    plt.xticks(rotation=45)
+    plt.grid(True)
+    plt.show()
+
+
+
+
+
+
+
+
